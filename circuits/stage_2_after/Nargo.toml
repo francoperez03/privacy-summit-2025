@@ -1,0 +1,6 @@
+[package]
+name = "stage2"
+type = "bin"
+authors = [""]
+
+[dependencies]
