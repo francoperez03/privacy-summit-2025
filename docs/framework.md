@@ -17,16 +17,13 @@ SILTU guides a team from **intent** to **verifiable design**. Each letter is a c
 ---
 
 ## I — Inputs (public vs private)
-**Question:** *Which data are private witnesses and which must be public or anchored — and who is the authority for each one?*
+**Question:** *Which data are private witnesses and which must be public or anchored*
 
 Specify for every datum:
 - **Private (witness):** exact fields the prover keeps secret.
 - **Public / Anchored:** values the verifier must see or that are bound to an external state (roots, epochs, signatures, policies).
-- **Source of truth:** on‑chain contract, backend, signed snapshot, file, oracle.
-- **Authority & cadence:** who publishes/updates, and how often.
-- **Transport & retention:** how the prover gets it; how long it remains valid.
 
-**Deliverable:** an input matrix listing *name · role (private/public) · source · authority · update policy*.
+**Deliverable:** an input matrix listing *name · role (private/public)*.
 
 ---
 
@@ -81,7 +78,6 @@ Cover at least:
 - **Negative cases per trap** (each listed threat must fail). 
 - **Edge cases** (boundary values, selector flips, root ±1, equality at threshold, zero values).
 - **Determinism & binding** (changing context or commitments must fail).
-- **Migration / lifecycle** tests if there are versions, epochs, or key rotations.
 
 **Deliverable:** a test suite with clear names: `test_valid_*`, `test_fails_*_<trap>`.
 
