@@ -1,4 +1,4 @@
-use std::hash::poseidon2::Poseidon2;
+use poseidon::poseidon2::Poseidon2;
 
 fn commit_dob(dob: u32) -> Field {
     Poseidon2::hash([dob as Field], 1)
@@ -7,6 +7,7 @@ fn commit_dob(dob: u32) -> Field {
 fn compute_nullifier(nsk: Field, dob_commitment: Field, app_silo: Field, request_id: Field) -> Field {
     Poseidon2::hash([nsk, dob_commitment, app_silo, request_id], 4)
 }
+
 
 fn main(
     cutoff: pub u32,              // today - 18y, computed by verifier
@@ -17,20 +18,18 @@ fn main(
     dob: u32,                     // Date of birth
     nsk: Field                    // Nullifier secret key (app-siloed)
 ) {
-    let dob_f: Field = dob as Field;
-    let cutoff_f: Field = cutoff as Field;
-
-    // Anti‑farming at prove-time: The DOB used in the proof must equal the pre-committed value.
+    //Antifarming at provetime: The DOB used in the proof must equal the pre-committed value.
     let dob_commit_calc = commit_dob(dob);
     assert(dob_commit_calc == dob_commitment);
 
-    // Anti‑replay / uniqueness in this context:
-    // Nullifier derived from an app‑siloed secret key.
+    // Anti-replay / uniqueness in this context:
+    // Nullifier derived from an app-siloed secret key.
     let nullifier_calc = compute_nullifier(nsk, dob_commitment, app_silo, request_id);
     assert(nullifier_calc == nullifier);
 
     // Business rule: at least 18 years.
-    assert(dob_f <= cutoff_f);
+    assert(dob <= cutoff);
+
 }
 
 #[test]
@@ -51,7 +50,7 @@ fn test_valid_proof() {
 #[test(should_fail)]
 fn test_fails_if_underage() {
     let dob = 20_000;
-    let cutoff = 25_000; // only 5 years later → fails
+    let cutoff = 25_000; // only 5 years later -> fails
 
     let dob_commitment = commit_dob(dob);
     let nsk = 42;

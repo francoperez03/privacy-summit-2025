@@ -1,17 +1,11 @@
-use std::hash::poseidon2::Poseidon2;
+use poseidon::poseidon2::Poseidon2;
 
-const DEPTH: u32 = 4;
-const DEPTH_USIZE: usize = 4;
+global DEPTH: u32 = 4;
 
 // ---- Helpers ---------------------------------------------------------------
 
 fn hash_pair(l: Field, r: Field) -> Field {
     Poseidon2::hash([l, r], 2)
-}
-
-/// Derive direction bit from index (true = right child, false = left child).
-fn dir_bit(index: u32, i: u32) -> bool {
-    ((index >> i) & 1) == 1
 }
 
 /// Structured, domain-separated leaf:
@@ -28,17 +22,19 @@ fn make_leaf(
 }
 
 /// Compute Merkle root from leaf + path using index-derived directions.
-fn compute_root_from_index(leaf: Field, index: u32, path: [Field; DEPTH_USIZE]) -> Field {
+fn compute_root_from_index(leaf: Field, index: u32, path: [Field; DEPTH]) -> Field {
     let mut digest = leaf;
-    let mut i = 0u32;
-    while i < DEPTH {
-        let sib = path[i as usize];
-        let (l, r) = if dir_bit(index, i) { (sib, digest) } else { (digest, sib) };
+
+    for i in 0..DEPTH {
+        let sib = path[i];
+        let dir = (index >> (i as u8)) & 1 == 1;
+        let (l, r) = if dir { (sib, digest) } else { (digest, sib) };
         digest = hash_pair(l, r);
-        i += 1;
     }
+
     digest
 }
+
 
 /// Consume-once nullifier (Aztec style):
 /// nullifier = H(TAG_NF, nsk, leaf, app_silo, epoch_id, request_id)
@@ -71,11 +67,11 @@ fn main(
     attr: Field,
     nsk: Field,
     index: u32,
-    path: [Field; DEPTH_USIZE],
+    path: [Field; DEPTH],
 ) {
     // Hardening: optional bound on index (avoid out-of-range)
-    // 1 << DEPTH = 16 para DEPTH=4
-    assert(index < (1u32 << DEPTH));
+    // 1 << DEPTH = 16 for DEPTH=4
+    assert(index < (1 << (DEPTH as u8)));
 
     // 1) Structured leaf with domain separation (binds to user + app context)
     let leaf = make_leaf(app_id, group_id, account_id, attr, version);
@@ -89,7 +85,7 @@ fn main(
     assert(nf_calc == nullifier);
 }
 
-fn fake_path() -> [Field; DEPTH_USIZE] {
+fn fake_path() -> [Field; DEPTH] {
     [11, 22, 33, 44]
 }
 
@@ -97,7 +93,7 @@ fn build_publics_and_proof() -> (
     // publics
     Field, Field, Field, Field, Field, Field, Field, Field,
     // privates
-    Field, Field, Field, u32, [Field; DEPTH_USIZE],
+    Field, Field, Field, u32, [Field; DEPTH],
 ) {
     // Context / bindings
     let app_id = 1001;
@@ -115,7 +111,7 @@ fn build_publics_and_proof() -> (
     let nsk = 424242;
 
     // Membership proof
-    let index: u32 = 6; // binary 0110 → dir pattern: [0,1,1,0]
+    let index: u32 = 6; // binary 0110 -> dir pattern: [0,1,1,0]
     let path = fake_path();
 
     // Build leaf and root deterministically for this test
@@ -171,8 +167,8 @@ fn test_fails_with_wrong_index_direction() {
         account_id, attr, nsk, mut index, path
     ) = build_publics_and_proof();
 
-    // Flip one bit of the index → traversal changes → root mismatch
-    index ^= 1u32; // toggle LSB
+    // Flip one bit of the index traversal changes -> root mismatch
+    index ^= 1; // toggle LSB
 
     main(
         app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
@@ -187,7 +183,7 @@ fn test_fails_with_tampered_leaf_binding() {
         mut account_id, attr, nsk, index, path
     ) = build_publics_and_proof();
 
-    // Change account_id → leaf changes → root mismatch
+    // Change account_id -> leaf changes -> root mismatch
     account_id += 1;
 
     main(

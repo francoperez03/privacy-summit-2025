@@ -24,15 +24,12 @@ You’ll learn:
   - `stage_1_after/`: Hardened with nullifier and context
   - `stage_2/`: Merkle inclusion
   - `stage_2_after/`: Structured leaf and binding
-  - `stage_3/`: Minimal UTXO flow
-  - `stage_3_after/`: Hardened UTXO with traps and context
 
 - [`/docs`](./docs): Full writeups and framework files
   - `framework.md`: The SILTU design framework
   - `next_steps.md`: Pro-level checklist (P1–P5)
   - `stage_1_attacks.md`: Threats and defenses for age proof
   - `stage_2_attacks.md`: Threats and defenses for membership
-  - `stage_3_attacks.md`: Threats and defenses for UTXO
 
 - `README.md`: You are here.
 

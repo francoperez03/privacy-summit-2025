@@ -1,0 +1,47 @@
+{
+  "noir_version": "1.0.0-beta.1+03b58fa2dfcc8acc8cf5198b1b23b55676fbdb02",
+  "hash": 4480625251416496634,
+  "abi": {
+    "parameters": [
+      {
+        "name": "today",
+        "type": {
+          "kind": "integer",
+          "sign": "unsigned",
+          "width": 32
+        },
+        "visibility": "public"
+      },
+      {
+        "name": "dob",
+        "type": {
+          "kind": "integer",
+          "sign": "unsigned",
+          "width": 32
+        },
+        "visibility": "private"
+      }
+    ],
+    "return_type": null,
+    "error_types": {
+      "2920182694213909827": {
+        "error_kind": "string",
+        "string": "attempt to subtract with overflow"
+      }
+    }
+  },
+  "bytecode": "H4sIAAAAAAAA/7VUS4rDMAy1HcPMtMxqLjDLLi1/EntX6KLnaKhzlB6gJ+mBepVCUyqBcEM2cR4YKbZ5SE8vluINPa5vzOW4Gowv/Bd7Evc4Gox7jGYZgHM503qfO5vBwcnY1MdgfOjbCBFCDGcbncvRxy71qTMJvMswhOQGJJMVuVS9Hg3XVKGmGrmV+ISsrHGNXoYRuQ3tRLlLuYESNeEzTYKQgFqsb0q13EgWjQSNqGdKvdIgS8MtrbOpOAuaOa9TsnyqD+6Jw+N+vF0vu/IOPYI/GDfsvGL9lvi36/CbL/GJDcu3xRn9ZFrM68e/VRHn7s7N5XfijDj/MPJ6qY8nuTxbX70GAAA=",
+  "debug_symbols": "lZBLCoMwFEX38sYZRGu1ZCulSL4SCEnIp1CCe28UBSmdZHjuPe8OXgEhWV5mbZWLQJ4FjOM0aWcrFej3KHpqN4qJhgRkxAikFUCmbkWgtJE169cXglubPvzTH8Ohdxj/+PdGf2z0pya/AgvaGL3M15/V+E2DpszIA1W2/NKmjz+b894Hx6XIQW5Le1fnvw==",
+  "file_map": {
+    "62": {
+      "source": "fn main(today: pub u32, dob: u32) {\n    let age_days: u32 = today - dob;\n    assert(age_days >= 6570); //18 * 365\n}",
+      "path": "/Users/francoperez/repos/wakeup/privacy-summit-2025/circuits/stage_1/src/main.nr"
+    }
+  },
+  "names": [
+    "main"
+  ],
+  "brillig_names": [
+    "directive_integer_quotient"
+  ]
+}
