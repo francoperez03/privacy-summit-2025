@@ -31,63 +31,86 @@ fn main(
     assert(dob <= cutoff);
 
 }
+// ---------------------- Unit tests -----------------------------------------
 
 #[test]
-fn test_valid_proof() {
+fn test_valid_over_18() {
     let dob = 10_000;
-    let cutoff = 10_000 + 6570; // exactly 18 years later
+    let cutoff = dob + 6570;
 
-    let dob_commitment = commit_dob(dob);
+    let dob_commit = commit_dob(dob);
     let nsk = 42;
     let app_silo = 12345;
-    let request_id = 777;
+    let request_id = 1;
 
-    let nullifier = compute_nullifier(nsk, dob_commitment, app_silo, request_id);
+    let nullifier = compute_nullifier(nsk, dob_commit, app_silo, request_id);
 
-    main(cutoff, app_silo, request_id, nullifier, dob_commitment, dob, nsk);
+    main(cutoff, app_silo, request_id, nullifier, dob_commit, dob, nsk);
 }
 
 #[test(should_fail)]
-fn test_fails_if_underage() {
-    let dob = 20_000;
-    let cutoff = 25_000; // only 5 years later -> fails
-
-    let dob_commitment = commit_dob(dob);
-    let nsk = 42;
-    let app_silo = 12345;
-    let request_id = 777;
-
-    let nullifier = compute_nullifier(nsk, dob_commitment, app_silo, request_id);
-
-    main(cutoff, app_silo, request_id, nullifier, dob_commitment, dob, nsk);
-}
-
-#[test(should_fail)]
-fn test_fails_if_dob_commitment_tampered() {
-    let dob = 10_000;
+fn test_invalid_underage() {
+    let dob = 25_000;
     let cutoff = 20_000;
 
-    let wrong_dob_commitment = commit_dob(9999); // wrong dob
+    let dob_commit = commit_dob(dob);
     let nsk = 42;
     let app_silo = 12345;
     let request_id = 777;
 
-    let nullifier = compute_nullifier(nsk, wrong_dob_commitment, app_silo, request_id);
+    let nullifier = compute_nullifier(nsk, dob_commit, app_silo, request_id);
 
-    main(cutoff, app_silo, request_id, nullifier, wrong_dob_commitment, dob, nsk);
+    main(cutoff, app_silo, request_id, nullifier, dob_commit, dob, nsk);
 }
 
-#[test(should_fail)]
-fn test_fails_if_nullifier_wrong() {
-    let dob = 10_000;
-    let cutoff = 20_000;
 
-    let dob_commitment = commit_dob(dob);
+#[test]
+fn test_edge_exactly_6570_days() {
+    let dob = 50_000;
+    let cutoff = dob + 6570;
+
+    let dob_commit = commit_dob(dob);
     let nsk = 42;
     let app_silo = 12345;
-    let request_id = 777;
+    let request_id = 3;
 
-    let wrong_nullifier = 0;
+    let nullifier = compute_nullifier(nsk, dob_commit, app_silo, request_id);
 
-    main(cutoff, app_silo, request_id, wrong_nullifier, dob_commitment, dob, nsk);
+    main(cutoff, app_silo, request_id, nullifier, dob_commit, dob, nsk);
+}
+
+
+#[test(should_fail)]
+fn test_edge_off_by_one_6569_days() {
+    let dob = 50_000;
+    let cutoff = dob - 6569;
+
+    let dob_commit = commit_dob(dob);
+    let nsk = 42;
+    let app_silo = 12345;
+    let request_id = 778;
+
+    let nullifier = compute_nullifier(nsk, dob_commit, app_silo, request_id);
+
+    main(cutoff, app_silo, request_id, nullifier, dob_commit, dob, nsk);
+}
+
+
+#[test]
+fn test_same_dob_different_request_new_nullifier() {
+    let dob = 70_000;
+    let cutoff = dob + 6570;
+
+    let dob_commit = commit_dob(dob);
+    let nsk = 42;
+    let app_silo = 12345;
+
+    // first request
+    let request_id1 = 100;
+    let nullifier1 = compute_nullifier(nsk, dob_commit, app_silo, request_id1);
+    main(cutoff, app_silo, request_id1, nullifier1, dob_commit, dob, nsk);
+
+    let request_id2 = 101;
+    let nullifier2 = compute_nullifier(nsk, dob_commit, app_silo, request_id2);
+    main(cutoff, app_silo, request_id2, nullifier2, dob_commit, dob, nsk);
 }

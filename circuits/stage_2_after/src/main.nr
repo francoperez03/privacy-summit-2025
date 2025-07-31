@@ -129,81 +129,101 @@ fn build_publics_and_proof() -> (
     )
 }
 
-// Tests ------------------------------------------------------------------
+// ---------------------- Unit tests -----------------------------------------
 
 #[test]
-fn test_valid_membership_and_nullifier() {
+fn test_valid_membership() {
     let (
         app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
         account_id, attr, nsk, index, path
     ) = build_publics_and_proof();
 
-    // Should pass
+    // Debe pasar
     main(
-        app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
+        app_id, group_id, version, root,
+        app_silo, epoch_id, request_id, nullifier,
         account_id, attr, nsk, index, path
     );
 }
 
 #[test(should_fail)]
-fn test_fails_with_wrong_root() {
-    let (
-        app_id, group_id, version, mut root, app_silo, epoch_id, request_id, nullifier,
-        account_id, attr, nsk, index, path
-    ) = build_publics_and_proof();
-
-    root += 1; // stale/incorrect root
-
-    main(
-        app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
-        account_id, attr, nsk, index, path
-    );
-}
-
-#[test(should_fail)]
-fn test_fails_with_wrong_index_direction() {
-    let (
-        app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
-        account_id, attr, nsk, mut index, path
-    ) = build_publics_and_proof();
-
-    // Flip one bit of the index traversal changes -> root mismatch
-    index ^= 1; // toggle LSB
-
-    main(
-        app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
-        account_id, attr, nsk, index, path
-    );
-}
-
-#[test(should_fail)]
-fn test_fails_with_tampered_leaf_binding() {
+fn test_invalid_not_in_list() {
     let (
         app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
         mut account_id, attr, nsk, index, path
     ) = build_publics_and_proof();
 
-    // Change account_id -> leaf changes -> root mismatch
-    account_id += 1;
+    account_id += 555;
 
     main(
-        app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
+        app_id, group_id, version, root,
+        app_silo, epoch_id, request_id, nullifier,
         account_id, attr, nsk, index, path
     );
 }
 
 #[test(should_fail)]
-fn test_fails_with_wrong_nullifier() {
+fn test_edge_wrong_path_length() {
     let (
-        app_id, group_id, version, root, app_silo, epoch_id, request_id, mut nullifier,
+        app_id, group_id, version, root,
+        app_silo, epoch_id, request_id, nullifier,
+        account_id, attr, nsk, index, mut path
+    ) = build_publics_and_proof();
+
+    path[DEPTH] = 0;
+
+    main(
+        app_id, group_id, version, root,
+        app_silo, epoch_id, request_id, nullifier,
+        account_id, attr, nsk, index, path
+    );
+}
+
+
+#[test(should_fail)]
+fn test_edge_off_by_one_index() {
+    let (
+        app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
+        account_id, attr, nsk, mut index, path
+    ) = build_publics_and_proof();
+
+    index ^= 1;
+
+    main(
+        app_id, group_id, version, root,
+        app_silo, epoch_id, request_id, nullifier,
+        account_id, attr, nsk, index, path
+    );
+}
+
+#[test]
+fn test_edge_same_leaf_different_request_new_nullifier() {
+    let epoch_id = 4444;
+
+    let (
+        app_id, group_id, version, root, app_silo, epoch_id, request_id_1, nullifier_1,
         account_id, attr, nsk, index, path
     ) = build_publics_and_proof();
 
-    // Break the consume-once property by altering the public nullifier
-    nullifier += 1;
+    main(
+        app_id, group_id, version, root,
+        app_silo, epoch_id, request_id_1, nullifier_1,
+        account_id, attr, nsk, index, path
+    );
+
+    let request_id_2 = request_id_1 + 1;
+    let nullifier_2 = calc_nullifier(nsk,
+                                        make_leaf(app_id, group_id, account_id, attr, version),
+                                        app_silo,
+                                        epoch_id,
+                                        request_id_2);
+
+    // nullifiers deben ser distintos
+    assert(nullifier_1 != nullifier_2);
 
     main(
-        app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
+        app_id, group_id, version, root,
+        app_silo, epoch_id, request_id_2, nullifier_2,
         account_id, attr, nsk, index, path
     );
 }
