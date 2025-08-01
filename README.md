@@ -2,7 +2,7 @@
 
 A practical workshop on building correct and meaningful Zero-Knowledge proofs.
 
-## 📋 What is this?
+## What is this?
 
 This workshop is designed to help developers and product teams think clearly when designing Zero-Knowledge (ZK) circuits.
 
@@ -33,10 +33,10 @@ You’ll learn:
 
 - `README.md`: You are here.
 
-## 🎥 Presentation
+## Presentation
 
 Slides from the session:  
-👉 [View the slides](https://example.com/zk-workshop-slides.pdf)
+[View the slides](https://drive.google.com/file/d/1eRpuwKq2SUMyS4oqqVJSb-VNUcbtazI2/view)
 
 ## 🛠 Tech stack
 
@@ -44,7 +44,7 @@ Slides from the session:
 - ZK circuit design principles
 - Zero-knowledge application patterns
 
-## 🙌 Who is this for?
+##  Who is this for?
 
 - **Product teams** who want to use ZK but don’t know where to start  
 - **Developers** building circuits that need to prove meaningful things  
@@ -52,7 +52,7 @@ Slides from the session:
 
 ---
 
-📣 Questions or ideas? Reach out:  
+Questions or ideas? Reach out:  
 - [@wakeuplabs](https://x.com/wakeuplabs)  
 - [@crypto_dev_1](https://x.com/crypto_dev_1)
 
