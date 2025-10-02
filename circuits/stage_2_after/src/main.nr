@@ -27,7 +27,7 @@ fn compute_root_from_index(leaf: Field, index: u32, path: [Field; DEPTH]) -> Fie
 
     for i in 0..DEPTH {
         let sib = path[i];
-        let dir = (index >> (i as u8)) & 1 == 1;
+        let dir = (index >> i) & 1 == 1;
         let (l, r) = if dir { (sib, digest) } else { (digest, sib) };
         digest = hash_pair(l, r);
     }
@@ -71,7 +71,7 @@ fn main(
 ) {
     // Hardening: optional bound on index (avoid out-of-range)
     // 1 << DEPTH = 16 for DEPTH=4
-    assert(index < (1 << (DEPTH as u8)));
+    assert(index < (1 << DEPTH));
 
     // 1) Structured leaf with domain separation (binds to user + app context)
     let leaf = make_leaf(app_id, group_id, account_id, attr, version);
