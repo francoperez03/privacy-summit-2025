@@ -1,6 +1,6 @@
 use poseidon::poseidon2::Poseidon2;
 
-global DEPTH: u32 = 4;
+global DEPTH: u32 = 2;  // Simplified: tree with 4 leaves
 
 // ---- Helpers ---------------------------------------------------------------
 
@@ -8,20 +8,17 @@ fn hash_pair(l: Field, r: Field) -> Field {
     Poseidon2::hash([l, r], 2)
 }
 
-/// Structured, domain-separated leaf:
-/// leaf = H(TAG_LEAF, app_id, group_id, account_id, attr, version)
+// Missing binding - Include account_id in leaf to bind proof to user
+// Cross-app reuse - Include app_id in leaf for domain separation
 fn make_leaf(
-    app_id: Field,
-    group_id: Field,
     account_id: Field,
     attr: Field,
-    version: Field,
+    app_id: Field,
 ) -> Field {
-    let TAG_LEAF: Field = 1 as Field;
-    Poseidon2::hash([TAG_LEAF, app_id, group_id, account_id, attr, version], 6)
+    Poseidon2::hash([account_id, attr, app_id], 3)
 }
 
-/// Compute Merkle root from leaf + path using index-derived directions.
+/// Compute Merkle root from leaf + path using index-derived directions
 fn compute_root_from_index(leaf: Field, index: u32, path: [Field; DEPTH]) -> Field {
     let mut digest = leaf;
 
@@ -35,195 +32,160 @@ fn compute_root_from_index(leaf: Field, index: u32, path: [Field; DEPTH]) -> Fie
     digest
 }
 
-
-/// Consume-once nullifier (Aztec style):
-/// nullifier = H(TAG_NF, nsk, leaf, app_silo, epoch_id, request_id)
+// Replay attack - Use nullifier to prevent proof reuse
+// nullifier = H(nsk, leaf, request_id)
 fn calc_nullifier(
     nsk: Field,
     leaf: Field,
-    app_silo: Field,
-    epoch_id: Field,
     request_id: Field,
 ) -> Field {
-    let TAG_NF: Field = 2 as Field;
-    Poseidon2::hash([TAG_NF, nsk, leaf, app_silo, epoch_id, request_id], 6)
+    Poseidon2::hash([nsk, leaf, request_id], 3)
 }
 
 // ---- Main circuit ----------------------------------------------------------
+// This circuit demonstrates fixes for 3 common vulnerabilities:
+// 1. Missing binding: account_id as public input + included in leaf
+// 2. Cross-app reuse: app_id included in leaf computation
+// 3. Replay attack: nullifier binds proof to specific request
 
 fn main(
-    // Publics (binding + freshness + consume-once)
-    app_id: pub Field,
-    group_id: pub Field,
-    version: pub Field,
-    root: pub Field,
-    app_silo: pub Field,
-    epoch_id: pub Field,
-    request_id: pub Field,
-    nullifier: pub Field,
+    // Public inputs
+    account_id: pub Field,    // Binds proof to specific user
+    app_id: pub Field,        // Prevents cross-app reuse
+    root: pub Field,          // Merkle root
+    request_id: pub Field,    // Binds proof to specific request
+    nullifier: pub Field,     // Prevents replay (verifier tracks seen nullifiers)
 
-    // Privates
-    account_id: Field,
-    attr: Field,
-    nsk: Field,
-    index: u32,
-    path: [Field; DEPTH],
+    // Private inputs
+    attr: Field,              // User's private attribute (e.g., age, tier)
+    nsk: Field,               // Nullifier secret key
+    index: u32,               // Position in tree
+    path: [Field; DEPTH],     // Merkle proof
 ) {
-    // Hardening: optional bound on index (avoid out-of-range)
-    // 1 << DEPTH = 16 for DEPTH=4
-    assert(index < (1 << DEPTH));
+    // 1) Compute leaf with binding and domain separation
+    //    - account_id: binds to user (prevents Alice's proof used by Bob)
+    //    - app_id: prevents proof reuse across different apps
+    let leaf = make_leaf(account_id, attr, app_id);
 
-    // 1) Structured leaf with domain separation (binds to user + app context)
-    let leaf = make_leaf(app_id, group_id, account_id, attr, version);
-
-    // 2) Merkle inclusion against committed root
+    // 2) Verify Merkle inclusion
     let calc_root = compute_root_from_index(leaf, index, path);
     assert(calc_root == root);
 
-    // 3) Consume-once: public nullifier (verifier must track seen set)
-    let nf_calc = calc_nullifier(nsk, leaf, app_silo, epoch_id, request_id);
+    // 3) Verify nullifier to prevent replay attacks
+    //    - Different request_id = different nullifier
+    //    - Verifier must track seen nullifiers and reject duplicates
+    let nf_calc = calc_nullifier(nsk, leaf, request_id);
     assert(nf_calc == nullifier);
 }
 
+// ---- Test helpers ----------------------------------------------------------
+
 fn fake_path() -> [Field; DEPTH] {
-    [11, 22, 33, 44]
+    [11, 22]  // 2 levels for DEPTH=2
 }
 
-fn build_publics_and_proof() -> (
+fn build_test_case() -> (
     // publics
-    Field, Field, Field, Field, Field, Field, Field, Field,
+    Field, Field, Field, Field, Field,
     // privates
-    Field, Field, Field, u32, [Field; DEPTH],
+    Field, Field, u32, [Field; DEPTH],
 ) {
-    // Context / bindings
+    // Public inputs
+    let account_id = 7777;
     let app_id = 1001;
-    let group_id = 2002;
-    let version = 1;
-
-    // Freshness / domain / request
-    let app_silo = 3003;
-    let epoch_id = 4444;
     let request_id = 5555;
 
-    // User data
-    let account_id = 7777;
-    let attr = 8888;   // e.g. some attribute
+    // Private inputs
+    let attr = 25;  // e.g., age
     let nsk = 424242;
-
-    // Membership proof
-    let index: u32 = 6; // binary 0110 -> dir pattern: [0,1,1,0]
+    let index: u32 = 2;  // binary: 10
     let path = fake_path();
 
-    // Build leaf and root deterministically for this test
-    let leaf = make_leaf(app_id, group_id, account_id, attr, version);
+    // Build leaf and root
+    let leaf = make_leaf(account_id, attr, app_id);
     let root = compute_root_from_index(leaf, index, path);
-
-    // Consume-once
-    let nullifier = calc_nullifier(nsk, leaf, app_silo, epoch_id, request_id);
+    let nullifier = calc_nullifier(nsk, leaf, request_id);
 
     (
         // publics
-        app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
+        account_id, app_id, root, request_id, nullifier,
         // privates
-        account_id, attr, nsk, index, path
+        attr, nsk, index, path
     )
 }
 
 // ---------------------- Unit tests -----------------------------------------
 
 #[test]
-fn test_valid_membership() {
+fn test_valid_proof() {
     let (
-        app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
-        account_id, attr, nsk, index, path
-    ) = build_publics_and_proof();
+        account_id, app_id, root, request_id, nullifier,
+        attr, nsk, index, path
+    ) = build_test_case();
 
-    // Debe pasar
-    main(
-        app_id, group_id, version, root,
-        app_silo, epoch_id, request_id, nullifier,
-        account_id, attr, nsk, index, path
-    );
+    main(account_id, app_id, root, request_id, nullifier, attr, nsk, index, path);
 }
 
 #[test(should_fail)]
-fn test_invalid_not_in_list() {
+fn test_attack_wrong_account_id() {
+    // Attack: Bob tries to use Alice's proof by changing account_id
     let (
-        app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
-        mut account_id, attr, nsk, index, path
-    ) = build_publics_and_proof();
+        mut account_id, app_id, root, request_id, nullifier,
+        attr, nsk, index, path
+    ) = build_test_case();
 
-    account_id += 555;
+    account_id = 9999;  // Bob's account_id != Alice's
 
-    main(
-        app_id, group_id, version, root,
-        app_silo, epoch_id, request_id, nullifier,
-        account_id, attr, nsk, index, path
-    );
+    // Should fail: leaf won't match because account_id is in the leaf hash
+    main(account_id, app_id, root, request_id, nullifier, attr, nsk, index, path);
 }
 
 #[test(should_fail)]
-fn test_edge_wrong_path_length() {
+fn test_attack_cross_app_reuse() {
+    // Attack: Reuse proof from App A in App B
     let (
-        app_id, group_id, version, root,
-        app_silo, epoch_id, request_id, nullifier,
-        account_id, attr, nsk, index, mut path
-    ) = build_publics_and_proof();
+        account_id, mut app_id, root, request_id, nullifier,
+        attr, nsk, index, path
+    ) = build_test_case();
 
-    path[DEPTH] = 0;
+    app_id = 2002;  // Different app_id
 
-    main(
-        app_id, group_id, version, root,
-        app_silo, epoch_id, request_id, nullifier,
-        account_id, attr, nsk, index, path
-    );
+    // Should fail: leaf won't match because app_id is in the leaf hash
+    main(account_id, app_id, root, request_id, nullifier, attr, nsk, index, path);
 }
 
-
 #[test(should_fail)]
-fn test_edge_off_by_one_index() {
+fn test_attack_replay() {
+    // Attack: Reuse same proof for different request
     let (
-        app_id, group_id, version, root, app_silo, epoch_id, request_id, nullifier,
-        account_id, attr, nsk, mut index, path
-    ) = build_publics_and_proof();
+        account_id, app_id, root, mut request_id, nullifier,
+        attr, nsk, index, path
+    ) = build_test_case();
 
-    index ^= 1;
+    request_id = 6666;  // Different request_id
 
-    main(
-        app_id, group_id, version, root,
-        app_silo, epoch_id, request_id, nullifier,
-        account_id, attr, nsk, index, path
-    );
+    // Should fail: nullifier won't match because request_id changed
+    main(account_id, app_id, root, request_id, nullifier, attr, nsk, index, path);
 }
 
 #[test]
-fn test_edge_same_leaf_different_request_new_nullifier() {
-    let epoch_id = 4444;
-
+fn test_different_requests_generate_different_nullifiers() {
+    // Same user can make multiple proofs with different nullifiers
     let (
-        app_id, group_id, version, root, app_silo, epoch_id, request_id_1, nullifier_1,
-        account_id, attr, nsk, index, path
-    ) = build_publics_and_proof();
+        account_id, app_id, root, request_id_1, nullifier_1,
+        attr, nsk, index, path
+    ) = build_test_case();
 
-    main(
-        app_id, group_id, version, root,
-        app_silo, epoch_id, request_id_1, nullifier_1,
-        account_id, attr, nsk, index, path
-    );
+    // First proof
+    main(account_id, app_id, root, request_id_1, nullifier_1, attr, nsk, index, path);
 
+    // Second proof with different request_id
     let request_id_2 = request_id_1 + 1;
-    let nullifier_2 = calc_nullifier(nsk,
-                                        make_leaf(app_id, group_id, account_id, attr, version),
-                                        app_silo,
-                                        epoch_id,
-                                        request_id_2);
+    let leaf = make_leaf(account_id, attr, app_id);
+    let nullifier_2 = calc_nullifier(nsk, leaf, request_id_2);
 
-    // nullifiers deben ser distintos
+    // Nullifiers must be different
     assert(nullifier_1 != nullifier_2);
 
-    main(
-        app_id, group_id, version, root,
-        app_silo, epoch_id, request_id_2, nullifier_2,
-        account_id, attr, nsk, index, path
-    );
+    main(account_id, app_id, root, request_id_2, nullifier_2, attr, nsk, index, path);
 }
